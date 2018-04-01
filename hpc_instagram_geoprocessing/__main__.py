@@ -5,6 +5,7 @@
 ### 736901
 
 import json
+import numpy as np
 import operator
 import sys
 import time
@@ -18,6 +19,7 @@ def loadData():
     insta = json.load(open('data/tinyInstagram.json'))
     return data, insta
 
+"""
 def getPosts(insta, coords):
     posts = {}
     rows = {}
@@ -41,6 +43,32 @@ def getPosts(insta, coords):
                 if square[1] not in cols:
                     cols[square[1]] = {'count': 0, 'content': []}
                 cols[square[1]]['content'].append(insta['rows'][i]['doc'])
+                cols[square[1]]['count'] += 1
+    return posts, rows, cols
+"""
+def getPosts(insta, coords):
+    posts = {}
+    rows = {}
+    cols = {}
+    for i in range(len(insta)):
+        if 'coordinates' in insta[i]['doc']:
+            loc = {
+                'x': insta[i]['doc']['coordinates']['coordinates'][1],
+                'y': insta[i]['doc']['coordinates']['coordinates'][0]
+            }
+            square = inside(loc, coords)
+            if square != None:
+                if square not in posts:
+                    posts[square] = {'count': 0, 'content': []}
+                posts[square]['content'].append(insta[i]['doc'])
+                posts[square]['count'] += 1
+                if square[0] not in rows:
+                    rows[square[0]] = {'count': 0, 'content': []}
+                rows[square[0]]['content'].append(insta[i]['doc'])
+                rows[square[0]]['count'] += 1
+                if square[1] not in cols:
+                    cols[square[1]] = {'count': 0, 'content': []}
+                cols[square[1]]['content'].append(insta[i]['doc'])
                 cols[square[1]]['count'] += 1
     return posts, rows, cols
 
@@ -75,30 +103,56 @@ def order(posts, rows, cols):
     for i in range(len(sortedCols)):
         print('Column ' + sortedCols[i][0] + ': ' + str(sortedCols[i][1]['count']) + ' posts')
 
+def merge(x, y):
+    for key in y:
+        if key in x:
+            x[key]['content'] += y[key]['content']
+            x[key]['count'] += y[key]['count']
+        else:
+            x[key] = y[key]
+    return x
+
 def main():
-    starttime = time.time()
-
-    size = MPI.COMM_WORLD.Get_size()
-    rank = MPI.COMM_WORLD.Get_rank()
-    name = MPI.Get_processor_name()
     comm = MPI.COMM_WORLD
+    size = comm.Get_size() # Number of processes
+    rank = comm.Get_rank() # Process number
+    name = MPI.Get_processor_name()
 
+    # Master
     if rank == 0:
-        msg = 'Hello, world'
-        comm.send(msg, dest=1)
-    elif rank == 1:
-        s = comm.recv()
-        print("Rank %d: %s" % (rank, s))
+        start = time.time()
+        data, insta = loadData()
+        coords = getCoordinates(data)
 
-    print("I am process %d of %d on %s\n" % (rank, size, name))
-    data, insta = loadData()
-    coords = getCoordinates(data)
-    posts, rows, cols = getPosts(insta, coords)
-    order(posts, rows, cols)
+        # Split data into equal sized chunks
+        chunks = np.array_split(insta['rows'], size)
 
-    endtime = time.time()
+        # Send data to workers
+        for i in range(1, size):
+            comm.send((coords, chunks[i]), dest=i)
 
-    print(endtime - starttime)
+        # Process chunk #0
+        posts, rows, cols = getPosts(chunks[0], coords)
+
+        # Receive processed data from workers
+        for i in range(1, size):
+            (p, r, c) = comm.recv(source=i)
+            posts = merge(posts, p)
+            rows = merge(rows, r)
+            cols = merge(cols, c)
+        order(posts, rows, cols)
+
+        end = time.time()
+        print('Time: ' + str(end - start) + 's')
+
+    # Worker
+    elif rank > 0:
+        #print("I am process %d of %d on %s\n" % (rank, size, name))
+        (coords, insta) = comm.recv(source=0)
+
+        # Process chunk #rank
+        posts, rows, cols = getPosts(insta, coords)
+        comm.send((posts, rows, cols), dest=0)
 
 if __name__ == '__main__':
     main()
