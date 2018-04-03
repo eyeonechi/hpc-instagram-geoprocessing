@@ -15,37 +15,12 @@ from pprint import pprint
 def loadData():
     for i in range(len(sys.argv)):
         sys.argv[i]
-    data = json.load(open('data/melbGrid.json'))
-    insta = json.load(open('data/tinyInstagram.json'))
+    with open('data/melbGrid.json', 'r') as file:
+        data = json.load(file)
+    with open('data/tinyInstagram.json', 'r') as file:
+        insta = json.load(file)
     return data, insta
 
-"""
-def getPosts(insta, coords):
-    posts = {}
-    rows = {}
-    cols = {}
-    for i in range(len(insta['rows'])):
-        if 'coordinates' in insta['rows'][i]['doc']:
-            loc = {
-                'x': insta['rows'][i]['doc']['coordinates']['coordinates'][1],
-                'y': insta['rows'][i]['doc']['coordinates']['coordinates'][0]
-            }
-            square = inside(loc, coords)
-            if square != None:
-                if square not in posts:
-                    posts[square] = {'count': 0, 'content': []}
-                posts[square]['content'].append(insta['rows'][i]['doc'])
-                posts[square]['count'] += 1
-                if square[0] not in rows:
-                    rows[square[0]] = {'count': 0, 'content': []}
-                rows[square[0]]['content'].append(insta['rows'][i]['doc'])
-                rows[square[0]]['count'] += 1
-                if square[1] not in cols:
-                    cols[square[1]] = {'count': 0, 'content': []}
-                cols[square[1]]['content'].append(insta['rows'][i]['doc'])
-                cols[square[1]]['count'] += 1
-    return posts, rows, cols
-"""
 def getPosts(insta, coords):
     posts = {}
     rows = {}
@@ -60,15 +35,15 @@ def getPosts(insta, coords):
             if square != None:
                 if square not in posts:
                     posts[square] = {'count': 0, 'content': []}
-                posts[square]['content'].append(insta[i]['doc'])
+                #posts[square]['content'].append(insta[i]['doc'])
                 posts[square]['count'] += 1
                 if square[0] not in rows:
                     rows[square[0]] = {'count': 0, 'content': []}
-                rows[square[0]]['content'].append(insta[i]['doc'])
+                #rows[square[0]]['content'].append(insta[i]['doc'])
                 rows[square[0]]['count'] += 1
                 if square[1] not in cols:
                     cols[square[1]] = {'count': 0, 'content': []}
-                cols[square[1]]['content'].append(insta[i]['doc'])
+                #cols[square[1]]['content'].append(insta[i]['doc'])
                 cols[square[1]]['count'] += 1
     return posts, rows, cols
 
@@ -90,9 +65,9 @@ def inside(location, coords):
     return None
 
 def order(posts, rows, cols):
-    sortedPosts = sorted(posts.items(), key=operator.itemgetter(1))
-    sortedRows = sorted(rows.items(), key=operator.itemgetter(1))
-    sortedCols = sorted(cols.items(), key=operator.itemgetter(1))
+    sortedPosts = sorted(posts.items(), key=operator.itemgetter(1), reverse=True)
+    sortedRows = sorted(rows.items(), key=operator.itemgetter(1), reverse=True)
+    sortedCols = sorted(cols.items(), key=operator.itemgetter(1), reverse=True)
     print('**** Rank by Unit ******')
     for i in range(len(sortedPosts)):
         print(sortedPosts[i][0] + ': ' + str(sortedPosts[i][1]['count']) + ' posts')
@@ -120,20 +95,42 @@ def main():
 
     # Master
     if rank == 0:
-        start = time.time()
-        data, insta = loadData()
+        start = time.clock()
+
+        # Open coordinates
+        with open('data/melbGrid.json', 'r') as file:
+            data = json.load(file)
+        # Send coordinates to workers
         coords = getCoordinates(data)
-
-        # Split data into equal sized chunks
-        chunks = np.array_split(insta['rows'], size)
-
-        # Send data to workers
         for i in range(1, size):
-            comm.send((coords, chunks[i]), dest=i)
+            comm.send(coords, dest=i)
 
-        # Process chunk #0
-        posts, rows, cols = getPosts(chunks[0], coords)
+        # Open posts
+        with open('data/tinyInstagram.json', 'r') as file:
+            insta = json.load(file)['rows']
 
+        turn = 1
+        for i in range(len(insta)):
+            if 'coordinates' in insta[i]['doc']:
+                loc = {
+                    'x': insta[i]['doc']['coordinates']['coordinates'][1],
+                    'y': insta[i]['doc']['coordinates']['coordinates'][0]
+                }
+                comm.send(loc, dest=turn)
+
+            # Change rank
+            if turn < (size - 1):
+                turn += 1
+            else:
+                turn = 1
+
+        # Send terminate signal
+        for i in range(1, size):
+            comm.send('terminate', dest=i)
+
+        posts = {}
+        rows = {}
+        cols = {}
         # Receive processed data from workers
         for i in range(1, size):
             (p, r, c) = comm.recv(source=i)
@@ -142,16 +139,34 @@ def main():
             cols = merge(cols, c)
         order(posts, rows, cols)
 
-        end = time.time()
+        end = time.clock()
         print('Time: ' + str(end - start) + 's')
 
     # Worker
     elif rank > 0:
-        #print("I am process %d of %d on %s\n" % (rank, size, name))
-        (coords, insta) = comm.recv(source=0)
+        posts = {}
+        rows = {}
+        cols = {}
+        coords = comm.recv(source=0)
 
-        # Process chunk #rank
-        posts, rows, cols = getPosts(insta, coords)
+        # Keeps receiving lines from master until terminate signal is received
+        while True:
+            loc = comm.recv(source=0)
+            if loc == 'terminate':
+                break
+            square = inside(loc, coords)
+            if square != None:
+                if square not in posts:
+                    posts[square] = {'count': 0, 'content': []}
+                posts[square]['count'] += 1
+                if square[0] not in rows:
+                    rows[square[0]] = {'count': 0, 'content': []}
+                rows[square[0]]['count'] += 1
+                if square[1] not in cols:
+                    cols[square[1]] = {'count': 0, 'content': []}
+                cols[square[1]]['count'] += 1
+
+        #print(str(rank) + ":\np: " + str(posts) + "\nr: " + str(rows) + "\nc: " + str(cols))
         comm.send((posts, rows, cols), dest=0)
 
 if __name__ == '__main__':
