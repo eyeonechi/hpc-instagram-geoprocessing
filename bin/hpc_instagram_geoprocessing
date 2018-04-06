@@ -1,4 +1,0 @@
-#!/usr/bin/env python
-
-import hpc_instagram_geoprocessing
-hpc_instagram_geoprocessing.main()
