@@ -2,8 +2,8 @@ import java.io.Serializable;
 
 public class Grid implements Serializable {
   String name;
-  Character column;
-  Integer row;
+  String column;
+  String row;
   Float xmin;
   Float xmax;
   Float ymin;
@@ -17,6 +17,10 @@ public class Grid implements Serializable {
       + Float.toString(this.ymin)
       + Float.toString(this.ymax)
       + "]";
+  }
+
+  public Boolean inGrid(Float x, Float y) {
+    return(x >= xmin && x <= xmax && y >= ymin && y <= ymax);
   }
 
 }
