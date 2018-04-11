@@ -1,22 +1,24 @@
-EXECS=hpc_instagram_geoprocessing
+EXECS=instaprocess_c
 MPICC?=mpicc
+GRIDFILE?=../data/melbGrid.json
+INSTAFILE=../data/mediumInstagram.json
 
 all: ${EXECS}
 
-hpc_instagram_geoprocessing: hpc_instagram_geoprocessing.c
-	${MPICC} -o hpc_instagram_geoprocessing hpc_instagram_geoprocessing.c
+instaprocess_c: instaprocess_c.c
+	${MPICC} -o instaprocess_c instaprocess_c.c
+
+run:
+	${MPICC} -o instaprocess_c instaprocess_c.c
+	mpirun -n 2 ./instaprocess_c ${GRIDFILE} ${INSTAFILE}
 
 run1:
-	mpirun -n 1 ./hpc_instagram_geoprocessing
-
-run2:
-	mpirun -n 2 ./hpc_instagram_geoprocessing
-
-run3:
-	mpirun -n 3 ./hpc_instagram_geoprocessing
+	${MPICC} -o instaprocess_c instaprocess_c.c
+	mpirun -n 1 ./instaprocess_c ${GRIDFILE} ${INSTAFILE}
 
 run4:
-	mpirun -n 4 ./hpc_instagram_geoprocessing
+	${MPICC} -o instaprocess_c instaprocess_c.c
+	mpirun -n 4 ./instaprocess_c ${GRIDFILE} ${INSTAFILE}
 
 clean:
 	rm ${EXECS}

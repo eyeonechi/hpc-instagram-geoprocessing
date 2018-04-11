@@ -32,13 +32,13 @@ def order(posts, rows, cols):
     sortedPosts = sorted(posts.items(), key=operator.itemgetter(1), reverse=True)
     sortedRows = sorted(rows.items(), key=operator.itemgetter(1), reverse=True)
     sortedCols = sorted(cols.items(), key=operator.itemgetter(1), reverse=True)
-    print('**** Rank by Unit ******')
+    print('// Rank by Unit')
     for i in range(len(sortedPosts)):
         print(sortedPosts[i][0] + ': ' + str(sortedPosts[i][1]) + ' posts')
-    print('**** Rank by Row *******')
+    print('// Rank by Row')
     for i in range(len(sortedRows)):
         print(sortedRows[i][0] + '-Row: ' + str(sortedRows[i][1]) + ' posts')
-    print('**** Rank by Column ****')
+    print('// Rank by Column')
     for i in range(len(sortedCols)):
         print('Column ' + sortedCols[i][0] + ': ' + str(sortedCols[i][1]) + ' posts')
 
@@ -51,6 +51,9 @@ def counterSummation(x, y, datatype):
     return x
 
 def main():
+    if len(sys.argv) != 3:
+        sys.exit()
+
     comm = MPI.COMM_WORLD
     size = comm.Get_size() # Number of processes
     rank = comm.Get_rank() # Process number
@@ -63,8 +66,11 @@ def main():
         rows = {}
         cols = {}
 
+        coordspath = sys.argv[1] #'../data/melbGrid.json'
+        postspath = sys.argv[2] #'../data/tinyInstagram.json'
+
         # Open coordinates
-        with open('../data/melbGrid.json', 'r') as file:
+        with open(coordspath, 'r') as file:
             data = json.load(file)
         # Send coordinates to workers
         coords = getCoordinates(data)
@@ -80,7 +86,7 @@ def main():
                 cols[coords[i]['id'][1]] = 0
 
         # Open posts
-        with open('../data/mediumInstagram.json', 'r') as file:
+        with open(postspath, 'r') as file:
 
             # -n > 1
             if (size > 1):
@@ -102,13 +108,10 @@ def main():
                         else:
                             turn = 1
                     except ValueError:
-                        # Send terminate signal
-                        for i in range(1, size):
-                            comm.send('terminate', dest=i)
-                        break
-                comm.reduce(posts, op=MPI.Op.Create(counterSummation, commute=True))
-                comm.reduce(rows, op=MPI.Op.Create(counterSummation, commute=True))
-                comm.reduce(cols, op=MPI.Op.Create(counterSummation, commute=True))
+                        continue
+                # Send terminate signal
+                for i in range(1, size):
+                    comm.send('terminate', dest=i)
 
             # -n = 1
             else:
@@ -129,11 +132,6 @@ def main():
                                 cols[square[1]] += 1
                     except ValueError:
                         break
-
-            order(posts, rows, cols)
-
-        end = time.clock()
-        print('Time: ' + str(end - start) + 's')
 
     # Worker Node
     elif rank > 0:
@@ -160,9 +158,14 @@ def main():
                 rows[square[0]] += 1
                 cols[square[1]] += 1
 
-        comm.reduce(posts, op=MPI.Op.Create(counterSummation, commute=True))
-        comm.reduce(rows, op=MPI.Op.Create(counterSummation, commute=True))
-        comm.reduce(cols, op=MPI.Op.Create(counterSummation, commute=True))
+    comm.barrier()
+    posts = comm.reduce(posts, root=0, op=MPI.Op.Create(counterSummation, commute=True))
+    rows = comm.reduce(rows, root=0, op=MPI.Op.Create(counterSummation, commute=True))
+    cols = comm.reduce(cols, root=0, op=MPI.Op.Create(counterSummation, commute=True))
+    if rank == 0:
+        order(posts, rows, cols)
+        end = time.clock()
+        print('Time: ' + str(end - start) + 's')
 
 if __name__ == '__main__':
     main()

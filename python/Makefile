@@ -1,6 +1,4 @@
 NAME=`python setup.py --name`
 
-all: check test source deb
-
-init:
-	pip install .
+run:
+	mpirun -n 4 python hpc_instagram_geoprocessing.py ../data/melbGrid.json ../data/mediumInstagram.json
