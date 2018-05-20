@@ -1,0 +1,3 @@
+sbatch hpc_instagram_geoprocessing_1n1c.slurm
+sbatch hpc_instagram_geoprocessing_1n8c.slurm
+sbatch hpc_instagram_geoprocessing_2n4c.slurm

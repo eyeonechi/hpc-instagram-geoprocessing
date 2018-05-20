@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name="doge24"
+#SBATCH --job-name="cpp24"
 #SBATCH --time=00:05:00
 #SBATCH --nodes=2
 #SBATCH --ntasks-per-node=4
@@ -10,10 +10,6 @@
 module load OpenMPI/1.10.0-GCC-4.9.2
 mpic++ instaprocess_cpp.cpp -o instaprocess_cpp
 
-# Launch C code
-echo "Processing smallInstagram.json"
-time mpiexec ./instaprocess_cpp melbGrid.json smallInstagram.json
-echo "Processing mediumInstagram.json"
-time mpiexec ./instaprocess_cpp melbGrid.json mediumInstagram.json
-#echo "Processing bigInstagram.json"
-#time mpiexec ./instaprocess_cpp melbGrid.json bigInstagram.json
+# Launch C++ code
+echo "Processing bigInstagram.json"
+time mpiexec ./instaprocess_cpp melbGrid.json bigInstagram.json

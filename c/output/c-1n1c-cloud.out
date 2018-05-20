@@ -1,0 +1,33 @@
+// Rank by Unit
+C2: 175969 posts
+B2: 22797 posts
+C3: 18293 posts
+B3: 6420 posts
+C4: 4234 posts
+B1: 3311 posts
+C5: 2638 posts
+D3: 2467 posts
+D4: 1923 posts
+C1: 1595 posts
+B4: 1069 posts
+D5: 783 posts
+A3: 497 posts
+A2: 479 posts
+A1: 262 posts
+A4: 133 posts
+// Rank by Row
+C-Row: 202729 posts
+B-Row: 33597 posts
+D-Row: 5173 posts
+A-Row: 1371 posts
+// Rank by Column
+Column 2: 199245 posts
+Column 3: 27677 posts
+Column 4: 7359 posts
+Column 1: 5168 posts
+Column 5: 3421 posts
+Time: 19.879999s
+
+real    0m20.031s
+user    0m14.848s
+sys     0m5.130s

@@ -1,17 +1,36 @@
+/*
+ * File    : HPCInstagramGeoprocessing.java
+ * Title   : HPC Instagram Geoprocessing
+ * Author  : Ivan Ken Weng Chee 736901
+ * Created : 10/04/2018
+ * Purpose : COMP90024 2018S1 Assignment 1
+ */
+
 import java.io.*;
 import java.util.*;
 import mpi.*;
 
+/* Processes a geocoded Instagram dataset and ranks results according to location */
 public class HPCInstagramGeoprocessing {
 
+  /* Main function */
   public static void main(String[] args) throws Exception {
-    long startTime = 0;
-    long endTime = 0;
+
+    // Initialises MPI and other variables
     MPI.Init(args);
     int rank = MPI.COMM_WORLD.Rank();
     int size = MPI.COMM_WORLD.Size();
     int master = 0;
     int tag = 100;
+    long startTime = 0;
+    long endTime = 0;
+
+    Boolean features = false;
+    String gridfile;
+    String instafile;
+    String line;
+    String header;
+    BufferedReader br;
 
     Object[] postsArray = new Object[1];
     Object[] rowsArray = new Object[1];
@@ -21,24 +40,29 @@ public class HPCInstagramGeoprocessing {
     HashMap<String, Integer> rows = new HashMap<String, Integer>();
     HashMap<String, Integer> columns = new HashMap<String, Integer>();
 
+    ArrayList<Grid> grids;
+
     // Master
     if (rank == master) {
+
+      // Checks for correct number of arguments
       if (args.length != 5) {
         System.exit(1);
       }
-      String gridfile = args[args.length - 2];
-      String instafile = args[args.length - 1];
 
+      gridfile = args[args.length - 2];
+      instafile = args[args.length - 1];
+
+      // Starts timer
       startTime = System.nanoTime();
       postsArray[0] = posts;
       rowsArray[0] = rows;
       columnsArray[0] = columns;
+      grids = new ArrayList<Grid>();
+      br = new BufferedReader(new FileReader(gridfile));
 
-      ArrayList<Grid> grids = new ArrayList<Grid>();
-      Boolean features = false;
-      BufferedReader br = new BufferedReader(new FileReader(gridfile));
+      // Processes the Instagram file
       try {
-        String line;
         while ((line = br.readLine()) != null) {
           if (line.equals("\"features\": [")) {
             features = true;
@@ -46,9 +70,13 @@ public class HPCInstagramGeoprocessing {
           } else if (line.equals("]")) {
             features = false;
           }
+
+          // A line containing grid information is found
           if (features) {
             String[] words = line.split(" ");
             Grid grid = new Grid();
+
+            // Converts line into Grid objects
             for (int i = 0; i < words.length; i ++) {
               if (words[i].equals("\"id\":")) {
                 grid.name = words[i + 1].replaceAll("\"", "").replaceAll(",", "");
@@ -73,6 +101,7 @@ public class HPCInstagramGeoprocessing {
 
       // Multi core
       if (size > 1) {
+
         // Send grid coordinates to workers
         Object[] sendObjectArray = new Object[1];
         sendObjectArray[0] = grids.toArray();
@@ -82,11 +111,13 @@ public class HPCInstagramGeoprocessing {
 
         int worker = 1;
         br = new BufferedReader(new FileReader(instafile));
+
+        // Processes the Instagram file
         try {
-          String line;
-          String header = br.readLine(); //First row
+          header = br.readLine(); //First row
           while ((line = br.readLine()) != null) {
-            // Send terminating signal
+
+            // Send terminating signal to workers
             if (line.equals("]}")) {
               Object[] terminateObjectArray = new Object[1];
               terminateObjectArray[0] = (Object) "terminate";
@@ -95,10 +126,12 @@ public class HPCInstagramGeoprocessing {
               }
               break;
             }
-            sendObjectArray[0] = (Object) line;
+
             // Send lines to workers alternatingly
+            sendObjectArray[0] = (Object) line;
             MPI.COMM_WORLD.Send(sendObjectArray, 0, 1, MPI.OBJECT, worker, tag);
-            // Change worker
+
+            // Switches worker to send to
             if (worker < (size - 1)) {
               worker += 1;
             } else {
@@ -109,8 +142,11 @@ public class HPCInstagramGeoprocessing {
           e.printStackTrace();
         }
       }
+
       // Single core
       else {
+
+        // Builds grids, rows, and columns HashMaps
         for (Grid grid: grids) {
           posts.put(grid.name, 0);
           if (!rows.containsKey(grid.row)) {
@@ -120,26 +156,31 @@ public class HPCInstagramGeoprocessing {
             columns.put(grid.column, 0);
           }
         }
+
         br = new BufferedReader(new FileReader(instafile));
+
+        // Processes the Instagram file
         try {
-          String line;
-          String header = br.readLine(); //First row
+          header = br.readLine(); //First row
           while ((line = br.readLine()) != null) {
-            // Send terminating signal
+            // Stop reading
             if (line.equals("]}")) {
               break;
             }
             Integer temp = 0;
             String[] words = line.split(":");
+
+            // Searches for point coordinates in each line
             for (int i = 0; i < words.length; i ++) {
               if (words[i].equals("\"Point\",\"coordinates\"")) {
                 String[] latlon = words[i + 1].replaceAll("]}}},", "").replace("[", "").split(",");
                 try {
                   Float x = Float.parseFloat(latlon[1]);
                   Float y = Float.parseFloat(latlon[0]);
+
+                  // Checks if points are in a grid and increment counters
                   for (Grid grid: grids) {
                     if (grid.inGrid(x, y)) {
-                      // Increment hash map
                       temp = posts.get(grid.name);
                       posts.remove(grid.name);
                       posts.put(grid.name, temp + 1);
@@ -151,7 +192,6 @@ public class HPCInstagramGeoprocessing {
                       temp = columns.get(grid.column);
                       columns.remove(grid.column);
                       columns.put(grid.column, temp + 1);
-
                       break;
                     }
                   }
@@ -169,9 +209,10 @@ public class HPCInstagramGeoprocessing {
 
     // Worker
     else {
+
       // Receive coordinates from master
       Object[][] recvGridsArray = new Object[1][];
-      ArrayList<Grid> grids = new ArrayList<Grid>();
+      grids = new ArrayList<Grid>();
       MPI.COMM_WORLD.Recv(recvGridsArray, 0, 1, MPI.OBJECT, master, tag);
       for (int i = 0; i < recvGridsArray[0].length; i ++) {
         grids.add((Grid) recvGridsArray[0][i]);
@@ -179,8 +220,9 @@ public class HPCInstagramGeoprocessing {
 
       // Receive lines from master
       Object[] recvObjectArray = new Object[1];
-      String line = null;
+      line = null;
 
+      // Builds grids, rows, and columns HashMaps
       for (Grid grid: grids) {
         posts.put(grid.name, 0);
         if (!rows.containsKey(grid.row)) {
@@ -191,23 +233,29 @@ public class HPCInstagramGeoprocessing {
         }
       }
 
+      // Receives and processes lines from Master
       while (true) {
         MPI.COMM_WORLD.Recv(recvObjectArray, 0, 1, MPI.OBJECT, master, tag);
         line = (String) recvObjectArray[0];
+
+        // Stop receiving
         if (line.equals("terminate")) {
           break;
         } else {
           Integer temp = 0;
           String[] words = line.split(":");
+
+          // Searches for point coordinates in each line
           for (int i = 0; i < words.length; i ++) {
             if (words[i].equals("\"Point\",\"coordinates\"")) {
               String[] latlon = words[i + 1].replaceAll("]}}},", "").replace("[", "").split(",");
               try {
                 Float x = Float.parseFloat(latlon[1]);
                 Float y = Float.parseFloat(latlon[0]);
+
+                // Checks if points are in a grid and increment counters
                 for (Grid grid: grids) {
                   if (grid.inGrid(x, y)) {
-                    // Increment hash map
                     temp = posts.get(grid.name);
                     posts.remove(grid.name);
                     posts.put(grid.name, temp + 1);
@@ -219,7 +267,6 @@ public class HPCInstagramGeoprocessing {
                     temp = columns.get(grid.column);
                     columns.remove(grid.column);
                     columns.put(grid.column, temp + 1);
-
                     break;
                   }
                 }
@@ -235,8 +282,10 @@ public class HPCInstagramGeoprocessing {
       columnsArray[0] = (Object) columns;
     }
 
+    // Ensures processes are synchronised before combining results
     MPI.COMM_WORLD.Barrier();
     if (size > 1) {
+      // Reduces HashMap counts
       HashMerge hashMerge = new HashMerge();
       Op op = new Op(hashMerge, true);
       MPI.COMM_WORLD.Reduce(postsArray, 0, postsArray, 0, 1, MPI.OBJECT, op, master);
@@ -244,6 +293,7 @@ public class HPCInstagramGeoprocessing {
       MPI.COMM_WORLD.Reduce(columnsArray, 0, columnsArray, 0, 1, MPI.OBJECT, op, master);
     }
 
+    // Sorts HashMaps in decreasing order
     List<Map.Entry<String, Integer>> sortedPosts = new ArrayList<>(posts.entrySet());
     Collections.sort(sortedPosts, new Comparator<Map.Entry<String, Integer>>() {
       public int compare(Map.Entry<String, Integer> x, Map.Entry<String, Integer> y) {
@@ -263,6 +313,7 @@ public class HPCInstagramGeoprocessing {
       }
     });
 
+    // Prints the final output
     if (rank == master) {
       System.out.println("// Rank by unit");
       for (Map.Entry<String, Integer> entry: sortedPosts) {

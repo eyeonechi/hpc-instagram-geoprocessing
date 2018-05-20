@@ -1,6 +1,7 @@
 import java.util.*;
 import mpi.*;
 
+/* Custom class for use in MPI_Reduce() */
 class HashMerge extends User_function {
 
   HashMerge() {

@@ -93,7 +93,7 @@ bool columnCmp(Column const &a, Column const &b) {
 /* Main function */
 int main(int argc, char **argv) {
 
-  // Initialise MPI variables
+  // Initialises MPI variables
   int size, rank;
   MPI_Init(&argc, &argv);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -149,6 +149,7 @@ int main(int argc, char **argv) {
         features = false;
         break;
       }
+
       // A line containing grid information is found
       if (features) {
         char *cstr = new char[line.length() + 1];
@@ -299,7 +300,7 @@ int main(int argc, char **argv) {
 
   // Master does the remaining work
   if (rank == 0) {
-    // Calculate row and column post counts from the reduced array
+    // Calculates row and column post counts from the reduced array
     for (int i = 0; i < grids.size(); i ++) {
         for (int j = 0; j < rows.size(); j ++) {
           if (rows[j].name == grids[i].row) {

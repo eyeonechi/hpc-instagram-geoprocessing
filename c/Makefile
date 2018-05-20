@@ -1,7 +1,7 @@
 EXECS=instaprocess_c
 MPICC?=mpicc
 GRIDFILE?=../data/melbGrid.json
-INSTAFILE=../data/mediumInstagram.json
+INSTAFILE=../data/tinyInstagram.json
 
 all: ${EXECS}
 
@@ -12,13 +12,13 @@ run:
 	${MPICC} -o instaprocess_c instaprocess_c.c
 	mpirun -n 2 ./instaprocess_c ${GRIDFILE} ${INSTAFILE}
 
-run1:
+run11:
 	${MPICC} -o instaprocess_c instaprocess_c.c
 	mpirun -n 1 ./instaprocess_c ${GRIDFILE} ${INSTAFILE}
 
-run4:
+run18:
 	${MPICC} -o instaprocess_c instaprocess_c.c
-	mpirun -n 4 ./instaprocess_c ${GRIDFILE} ${INSTAFILE}
+	mpirun -n 8 ./instaprocess_c ${GRIDFILE} ${INSTAFILE}
 
 clean:
 	rm ${EXECS}

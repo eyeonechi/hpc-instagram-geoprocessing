@@ -1,5 +1,6 @@
 import java.io.Serializable;
 
+/* Geographical grid boxes */
 public class Grid implements Serializable {
   String name;
   String column;
@@ -9,16 +10,7 @@ public class Grid implements Serializable {
   Float ymin;
   Float ymax;
 
-  public String toString() {
-    return this.name
-      + "["
-      + Float.toString(this.xmin)
-      + Float.toString(this.xmax)
-      + Float.toString(this.ymin)
-      + Float.toString(this.ymax)
-      + "]";
-  }
-
+  /* Checks if a point is in this grid */
   public Boolean inGrid(Float x, Float y) {
     return(x >= xmin && x <= xmax && y >= ymin && y <= ymax);
   }

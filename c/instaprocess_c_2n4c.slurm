@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name="P=NP?"
+#SBATCH --job-name="c24"
 #SBATCH --time=00:05:00
 #SBATCH --nodes=2
 #SBATCH --ntasks-per-node=4
